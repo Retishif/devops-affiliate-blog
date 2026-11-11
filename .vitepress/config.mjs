@@ -25,7 +25,7 @@ export default defineConfig({
 
     // Adds an automatic "On this page" table of contents on the right
     outline: {
-      level:,
+      level: 2,
       label: 'Architecture Sections'
     }
   }

@@ -15,5 +15,13 @@
   "type": "commonjs",
   "devDependencies": {
     "vitepress": "^1.6.4"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Retishif/devops-affiliate-blog.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Retishif/devops-affiliate-blog/issues"
+  },
+  "homepage": "https://github.com/Retishif/devops-affiliate-blog#readme"
 }
