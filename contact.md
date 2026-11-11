@@ -5,7 +5,7 @@ description: Send corrections, suggestions, and technical feedback for Cloud Nat
 
 # Contact
 
-For corrections, technical feedback, or suggestions for future guides, please open an issue in the [GitHub repository](https://github.com/Retishif/devops-affiliate-blog/issues).
+For corrections, technical feedback, or suggestions for future guides, please [open a new GitHub issue](https://github.com/Retishif/devops-affiliate-blog/issues/new).
 
 When reporting a technical issue, include:
 

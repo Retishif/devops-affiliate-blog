@@ -19,4 +19,4 @@ Cloud infrastructure pricing, service limits, product features, and affiliate-pr
 
 ## Questions
 
-For questions or corrections about a disclosure, please use the [GitHub issue tracker](https://github.com/Retishif/devops-affiliate-blog/issues).
+For questions or corrections about a disclosure, please [open a new GitHub issue](https://github.com/Retishif/devops-affiliate-blog/issues/new).
