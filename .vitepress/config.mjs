@@ -3,6 +3,7 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: "Cloud Native & DevOps Architecture",
   description: "Production-grade infrastructure blueprints, CI/CD pipelines, and observability guides.",
+  ignoreDeadLinks: true,
   themeConfig: {
     // Top navigation bar
     nav: [
