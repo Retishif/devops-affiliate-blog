@@ -957,7 +957,7 @@ Useful references:
 
 #### Vultr: High Frequency Compute, VKE, and Object Storage
 
-[**Vultr**](https://www.vultr.com/) is another option to benchmark,
+[**Vultr**](https://www.vultr.com/?ref=9935169) is another option to benchmark,
 particularly when its regional compute and storage offerings fit the
 deployment.
 
