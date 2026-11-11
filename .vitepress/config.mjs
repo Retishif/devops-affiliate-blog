@@ -4,6 +4,9 @@ export default defineConfig({
   title: "Cloud Native & DevOps Architecture",
   description: "Production-grade infrastructure blueprints, CI/CD pipelines, and observability guides.",
   ignoreDeadLinks: true,
+  head: [
+    ['meta', { name: 'google-site-verification', content: 'fwyKlyeNRyzY5nPrCs6tpvdjhO8ghfy7Oll4bHRHseI' }]
+  ],
   themeConfig: {
     // Top navigation bar
     nav: [
