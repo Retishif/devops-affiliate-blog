@@ -1,28 +1,32 @@
 import { defineConfig } from 'vitepress'
 
-// https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: "DevOps Insights",
-  description: "Technical guides and cloud architecture breakdowns.",
+  title: "Cloud Native & DevOps Architecture",
+  description: "Production-grade infrastructure blueprints, CI/CD pipelines, and observability guides.",
   themeConfig: {
-    // https://vitepress.dev/reference/default-theme-config
+    // Top navigation bar
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Examples', link: '/markdown-examples' }
+      { text: 'Terraform & IaC', link: '/terraform-cloud-alternative-gitlab-ci' }
     ],
 
+    // Left-hand sidebar for easy reading
     sidebar: [
       {
-        text: 'Examples',
+        text: 'Infrastructure as Code',
         items: [
-          { text: 'Markdown Examples', link: '/markdown-examples' },
-          { text: 'Runtime API Examples', link: '/api-examples' }
+          { 
+            text: 'Terraform Cloud Alternative with GitLab CI', 
+            link: '/terraform-cloud-alternative-gitlab-ci' 
+          }
         ]
       }
     ],
 
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/vuejs/vitepress' }
-    ]
+    // Adds an automatic "On this page" table of contents on the right
+    outline: {
+      level:,
+      label: 'Architecture Sections'
+    }
   }
 })
