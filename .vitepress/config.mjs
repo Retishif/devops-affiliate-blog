@@ -12,6 +12,7 @@ export default defineConfig({
     nav: [
       { text: 'Home', link: '/' },
       { text: 'Terraform & IaC', link: '/terraform-cloud-alternative-gitlab-ci' },   
+      { text: 'Observability', link: '/datadog-alternative-grafana-loki-prometheus' },
       { text: 'About', link: '/about' },
       { text: 'Disclosure', link: '/affiliate-disclosure' },
       { text: 'Contact', link: '/contact' }
