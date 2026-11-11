@@ -489,7 +489,7 @@ This architecture has two infrastructure footprints: the **runner fleet** that e
 For a small-to-mid team, a single Docker-executor runner on a general-purpose VM is enough: 2 vCPU and 4 GB RAM handles typical `plan`/`apply` concurrency of 2–4 jobs. The memory-hungry part is large provider binaries (AWS, Azure) loading in parallel, not CPU.
 
 - **[DigitalOcean]({{AFFILIATE_URL_DIGITALOCEAN}}) Droplets:** Predictable flat pricing and simple networking. Use a Droplet for the Docker executor. If you want ephemeral per-job pods, [DigitalOcean Kubernetes (DOKS)]({{AFFILIATE_URL_DIGITALOCEAN}}) pairs with GitLab's Kubernetes executor. Verify current control-plane pricing, since the standard control plane has historically been free.
-- **[Vultr]({{ https://www.vultr.com/?ref=9935169 }}):** A comparable option with a wide region footprint, which helps if you want runners geographically close to the APIs you provision. Vultr Kubernetes Engine https://www.vultr.com/?ref=9935169 fills the same role as DOKS.
+- **[Vultr](https://www.vultr.com/?ref=9935169):** A comparable option with a wide region footprint, which helps if you want runners geographically close to the APIs you provision. Vultr Kubernetes Engine https://www.vultr.com/?ref=9935169 fills the same role as DOKS.
 
 Both have first-party Terraform providers, so the runner infrastructure can be bootstrapped by this same pipeline once the first runner exists.
 
