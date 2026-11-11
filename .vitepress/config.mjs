@@ -4,6 +4,9 @@ export default defineConfig({
   title: 'Cloud Native & DevOps Architecture',
   description: 'Practical infrastructure, Terraform, CI/CD, and observability guides for DevOps engineers.',
   ignoreDeadLinks: true,
+  sitemap: {
+    hostname: 'https://cloudnativecraft.com'
+  },
   head: [
     ['meta', { name: 'google-site-verification', content: 'fwyKlyeNRyzY5nPrCs6tpvdjhO8ghfy7Oll4bHRHseI' }],
     ['meta', { name: 'theme-color', content: '#ffffff' }]

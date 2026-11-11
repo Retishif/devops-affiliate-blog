@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://devops-affiliate-blog.pages.dev/sitemap.xml
+Sitemap: https://cloudnativecraft.com/sitemap.xml
