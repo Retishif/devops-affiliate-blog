@@ -11,7 +11,7 @@ export default defineConfig({
   themeConfig: {
     nav: [
       { text: 'Home', link: '/' },
-      { text: 'Terraform & IaC', link: '/terraform-cloud-alternative-gitlab-ci' },
+      { text: 'Terraform & IaC', link: '/terraform-cloud-alternative-gitlab-ci' },   
       { text: 'About', link: '/about' },
       { text: 'Disclosure', link: '/affiliate-disclosure' },
       { text: 'Contact', link: '/contact' }
@@ -23,6 +23,15 @@ export default defineConfig({
           {
             text: 'Terraform Cloud Alternative with GitLab CI',
             link: '/terraform-cloud-alternative-gitlab-ci'
+          }
+        ]
+      },
+      {
+        text: 'Observability & Operations',
+        items: [
+          {
+            text: 'Datadog Alternative with Grafana, Loki, and Prometheus',
+            link: '/datadog-alternative-grafana-loki-prometheus'
           }
         ]
       },

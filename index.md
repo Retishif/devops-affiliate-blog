@@ -24,11 +24,15 @@ features:
     details: Understand monitoring, logging, drift detection, reliability, and the trade-offs behind production systems.
 ---
 
-## Latest guide
+## Latest guides
 
 ### [How to Build a Terraform Cloud Alternative Using GitLab CI](/terraform-cloud-alternative-gitlab-ci)
 
 A walkthrough of GitLab-managed Terraform state, CI pipeline stages, workload identity, drift detection, and operational considerations.
+
+### [Building a Cost-Effective Datadog Alternative with Grafana, Loki, and Prometheus](/datadog-alternative-grafana-loki-prometheus)
+
+A practical guide to self-hosted observability, including the architecture, cost model, production configuration, and infrastructure sizing.
 
 > Examples are starting points, not a substitute for validating versions, permissions, security controls, and provider-specific behavior in your own environment.
 
