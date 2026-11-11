@@ -5,39 +5,33 @@ description: Practical infrastructure, Terraform, CI/CD, and observability guide
 
 hero:
   name: "Cloud Native & DevOps Architecture"
-  text: "Practical blueprints for building and operating cloud infrastructure"
-  tagline: "Hands-on guides for Terraform, CI/CD, containers, and observability—with trade-offs and operational details, not marketing claims."
+  text: "Practical infrastructure. Clear trade-offs."
+  tagline: "Independent, hands-on guides to cloud platforms, delivery, and observability—for engineers who build and operate real systems."
   actions:
     - theme: brand
-      text: Read the Terraform + GitLab CI guide
-      link: /terraform-cloud-alternative-gitlab-ci
+      text: Explore the guides
+      link: "#start-with-a-guide"
     - theme: alt
       text: About this site
       link: /about
 
 features:
   - title: Infrastructure as Code
-    details: Explore Terraform and OpenTofu workflows, remote state, locking, and infrastructure automation.
-  - title: CI/CD and Platform Engineering
-    details: Learn practical pipeline patterns, deployment automation, identity, and operational safeguards.
-  - title: Observability and Operations
-    details: Understand monitoring, logging, drift detection, reliability, and the trade-offs behind production systems.
+    details: Build safer Terraform and GitLab CI workflows with remote state, workload identity, drift detection, and operational guardrails.
+    link: /terraform-cloud-alternative-gitlab-ci
+    linkText: Read the guide
+  - title: Observability
+    details: Explore a self-hosted Grafana, Loki, and Prometheus stack, with costs, storage, and production trade-offs up front.
+    link: /datadog-alternative-grafana-loki-prometheus
+    linkText: Read the guide
 ---
 
-## Latest guides
+## Start with a guide
 
-### [How to Build a Terraform Cloud Alternative Using GitLab CI](/terraform-cloud-alternative-gitlab-ci)
+The guides focus on the decisions behind the tools: what to configure, what to watch in production, and where the operational or cost trade-offs appear.
 
-A walkthrough of GitLab-managed Terraform state, CI pipeline stages, workload identity, drift detection, and operational considerations.
+## How the guides are written
 
-### [Building a Cost-Effective Datadog Alternative with Grafana, Loki, and Prometheus](/datadog-alternative-grafana-loki-prometheus)
+Examples are starting points, not production guarantees. Guides aim to make prerequisites, assumptions, failure modes, and trade-offs clear; verify versions, permissions, security controls, and provider documentation for your own environment.
 
-A practical guide to self-hosted observability, including the architecture, cost model, production configuration, and infrastructure sizing.
-
-> Examples are starting points, not a substitute for validating versions, permissions, security controls, and provider-specific behavior in your own environment.
-
-## Editorial approach
-
-The goal is to explain how systems work and where the trade-offs are. Guides should distinguish verified behavior from assumptions, identify prerequisites, and link to primary documentation where practical.
-
-For information about the site's use of affiliate links, see the [Affiliate Disclosure](/affiliate-disclosure).
+Some links may be affiliate links. They do not determine recommendations; see the [Affiliate Disclosure](/affiliate-disclosure) for details.
