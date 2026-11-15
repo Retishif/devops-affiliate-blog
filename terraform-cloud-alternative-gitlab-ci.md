@@ -5,7 +5,7 @@ description: Build a Terraform Cloud alternative with GitLab CI. Managed state, 
 
 # How to Build a Production-Grade Terraform Cloud Alternative Using GitLab CI
 
-> **Advertising Disclosure:** Cloud Native Craft is reader-supported. When you buy or sign up through links on this site, we may earn an affiliate commission or advertising fee at no additional cost to you. Opinions and technical evaluations remain our own.
+> **Affiliate disclosure:** We earn commissions when you shop through the links below. The Vultr links marked “affiliate” in Section 5 are referral links; if you sign up through them, we may earn a commission at no additional cost to you. DigitalOcean links marked “affiliate URL pending” are placeholders: they currently go directly to DigitalOcean and do not track referrals. Our technical opinions remain our own.
 
 A handful of Terraform configurations can grow into hundreds of resources, several environments, and a deployment process nobody fully remembers. Many teams hand that problem to HCP Terraform (formerly Terraform Cloud), which bundles remote state, runs, approvals, and policy checks in one place.
 
@@ -544,7 +544,7 @@ If you also want pipeline duration, queue time, and per-ref status without custo
 
 ## 5. Infrastructure Placement & Production Recommendations
 
-*Disclosure: Vultr links marked “affiliate” use a referral link; we may earn a commission if you sign up, at no extra cost to you. DigitalOcean and AWS links go directly to those providers. Verify current pricing and terms yourself.*
+*Affiliate disclosure: Vultr links marked “affiliate” below are referral links; if you sign up through them, we may earn a commission at no extra cost to you. DigitalOcean links marked “affiliate URL pending” currently go directly to DigitalOcean and do not track referrals; we will replace them with approved tracking URLs if accepted into the program. AWS links are direct. Verify current pricing and terms yourself.*
 
 This architecture has two infrastructure footprints: the **runner fleet** that executes Terraform and the **object storage** for caches and state backups. Neither needs a hyperscaler's premium tier. Hyperscaler pricing buys you IAM depth, compliance certifications, and a large service catalog. A CI runner host uses none of that.
 
@@ -552,7 +552,7 @@ This architecture has two infrastructure footprints: the **runner fleet** that e
 
 For a small-to-mid team, a single Docker-executor runner on a general-purpose VM is enough: 2 vCPU and 4 GB RAM handles typical `plan`/`apply` concurrency of 2–4 jobs. The memory-hungry part is large provider binaries (AWS, Azure) loading in parallel, not CPU.
 
-- **[DigitalOcean Droplets](https://www.digitalocean.com/products/droplets):** Predictable flat pricing and simple networking. Use a Droplet for the Docker executor. For ephemeral per-job pods, [DigitalOcean Kubernetes (DOKS)](https://www.digitalocean.com/products/kubernetes) pairs with GitLab's Kubernetes executor. Verify current control-plane pricing before choosing a cluster.
+- **[DigitalOcean Droplets (affiliate URL pending)](https://www.digitalocean.com/products/droplets):** Predictable flat pricing and simple networking. Use a Droplet for the Docker executor. For ephemeral per-job pods, [DigitalOcean Kubernetes (affiliate URL pending)](https://www.digitalocean.com/products/kubernetes) pairs with GitLab's Kubernetes executor. Verify current control-plane pricing before choosing a cluster.
 - **[Vultr (affiliate)](https://www.vultr.com/?ref=9935169):** A comparable option with a wide region footprint, which helps if you want runners geographically close to the APIs you provision. [Vultr Kubernetes Engine (affiliate)](https://www.vultr.com/?ref=9935169) fills the same role as DOKS.
 
 Both have first-party Terraform providers, so the runner infrastructure can be bootstrapped by this same pipeline once the first runner exists.
@@ -565,7 +565,7 @@ GitLab Managed State covers your state. Object storage covers everything adjacen
 2. **State backups:** Managed state is versioned, but a defense-in-depth copy in an independent system is cheap insurance against a GitLab-side incident or an accidental project deletion.
 3. **Plan archives and audit artifacts:** Longer retention than the 2-hour CI artifact window, if compliance requires it.
 
-[DigitalOcean Spaces](https://www.digitalocean.com/products/spaces), [Vultr Object Storage (affiliate)](https://www.vultr.com/?ref=9935169), and [AWS S3](https://aws.amazon.com/s3/) all speak the S3 API. Choose AWS S3 if your workloads already live there and you want IAM-native access control and Object Lock. Spaces and Vultr are often simpler to bill and can cost less for smaller workloads, but compare current pricing first. Check egress terms in particular, because that is where object-storage cost surprises usually come from.
+[DigitalOcean Spaces (affiliate URL pending)](https://www.digitalocean.com/products/spaces), [Vultr Object Storage (affiliate)](https://www.vultr.com/?ref=9935169), and [AWS S3](https://aws.amazon.com/s3/) all speak the S3 API. Choose AWS S3 if your workloads already live there and you want IAM-native access control and Object Lock. Spaces and Vultr are often simpler to bill and can cost less for smaller workloads, but compare current pricing first. Check egress terms in particular, because that is where object-storage cost surprises usually come from.
 
 **Runner cache configuration** (`/etc/gitlab-runner/config.toml`, DigitalOcean Spaces example):
 
