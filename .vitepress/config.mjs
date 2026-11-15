@@ -1,9 +1,27 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
-  title: 'Cloud Native & DevOps Architecture',
+  title: 'Cloud Native Craft',
   description: 'Practical infrastructure, Terraform, CI/CD, and observability guides for DevOps engineers.',
   ignoreDeadLinks: true,
+  srcExclude: ['business/**'],
+  markdown: {
+    config(md) {
+      // Mark affiliate/referral links as rel="sponsored" (see the Affiliate Disclosure page).
+      const defaultRender =
+        md.renderer.rules.link_open ||
+        ((tokens, idx, options, env, self) => self.renderToken(tokens, idx, options))
+      md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
+        const html = defaultRender(tokens, idx, options, env, self)
+        const href = tokens[idx].attrGet('href') || ''
+        if (!/[?&](ref|aff|affiliate|aff_id)=/i.test(href)) return html
+        const rel = 'sponsored noopener noreferrer'
+        return /\srel="[^"]*"/.test(html)
+          ? html.replace(/(\srel=")[^"]*(")/, `$1${rel}$2`)
+          : html.replace(/^<a/, `<a rel="${rel}"`)
+      }
+    }
+  },
   sitemap: {
     hostname: 'https://cloudnativecraft.com'
   },
@@ -17,7 +35,7 @@ export default defineConfig({
       { text: 'Terraform & IaC', link: '/terraform-cloud-alternative-gitlab-ci' },   
       { text: 'Observability', link: '/datadog-alternative-grafana-loki-prometheus' },
       { text: 'About', link: '/about' },
-      { text: 'Disclosure', link: '/affiliate-disclosure' },
+      { text: 'Advertising & Affiliate Disclosure', link: '/affiliate-disclosure' },
       { text: 'Contact', link: '/contact' }
     ],
     sidebar: [
@@ -36,6 +54,10 @@ export default defineConfig({
           {
             text: 'Datadog Alternative with Grafana, Loki, and Prometheus',
             link: '/datadog-alternative-grafana-loki-prometheus'
+          },
+          {
+            text: 'How Much Does Datadog Really Cost at Scale?',
+            link: '/datadog-cost-at-scale'
           }
         ]
       },
@@ -43,7 +65,7 @@ export default defineConfig({
         text: 'About this site',
         items: [
           { text: 'About', link: '/about' },
-          { text: 'Affiliate Disclosure', link: '/affiliate-disclosure' },
+          { text: 'Advertising & Affiliate Disclosure', link: '/affiliate-disclosure' },
           { text: 'Contact', link: '/contact' }
         ]
       }
@@ -56,8 +78,8 @@ export default defineConfig({
       { icon: 'github', link: 'https://github.com/Retishif/devops-affiliate-blog' }
     ],
     footer: {
-      message: 'Independent technical content. Verify provider documentation and pricing before production use.',
-      copyright: 'Copyright © 2026 Cloud Native & DevOps Architecture'
+      message: 'Advertising Disclosure: Cloud Native Craft is reader-supported. When you buy or sign up through links on this site, we may earn an affiliate commission or advertising fee at no additional cost to you. Opinions and technical evaluations remain our own.',
+      copyright: 'Copyright © 2026 Cloud Native Craft'
     }
   }
 })

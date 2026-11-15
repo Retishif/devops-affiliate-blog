@@ -1,10 +1,10 @@
 ---
 layout: home
-title: Cloud Native & DevOps Architecture
+title: Cloud Native Craft
 description: Practical infrastructure, Terraform, CI/CD, and observability guides for DevOps engineers.
 
 hero:
-  name: "Cloud Native & DevOps Architecture"
+  name: "Cloud Native Craft"
   text: "Practical infrastructure. Clear trade-offs."
   tagline: "Independent, hands-on guides to cloud platforms, delivery, and observability—for engineers who build and operate real systems."
   actions:
@@ -23,6 +23,10 @@ features:
   - title: Observability
     details: Explore a self-hosted Grafana, Loki, and Prometheus stack, with costs, storage, and production trade-offs up front.
     link: /datadog-alternative-grafana-loki-prometheus
+    linkText: Read the guide
+  - title: Cost Analysis
+    details: A worked cost model of a 200-host Datadog bill, the charges that inflate it, and when self-hosting actually saves money.
+    link: /datadog-cost-at-scale
     linkText: Read the guide
 ---
 

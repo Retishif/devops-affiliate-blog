@@ -1,18 +1,47 @@
+---
+title: Terraform Cloud Alternative with GitLab CI
+description: Build a Terraform Cloud alternative with GitLab CI. Managed state, locking, merge-request plans, OIDC, drift detection, and Prometheus, Grafana, and Loki monitoring.
+---
+
 # How to Build a Production-Grade Terraform Cloud Alternative Using GitLab CI
 
-## 1. The Real Cost of Infrastructure Automation Platforms
+> **Advertising Disclosure:** Cloud Native Craft is reader-supported. When you buy or sign up through links on this site, we may earn an affiliate commission or advertising fee at no additional cost to you. Opinions and technical evaluations remain our own.
 
-Terraform Cloud, now branded HCP Terraform, bills on resources under management (RUM). This model punishes the way mature infrastructure actually looks. A single VPC module can fan out into dozens of billable resources: route table associations, security group rules, IAM policy attachments, DNS records. A team that manages 40 "things" in its architecture diagram can easily manage 4,000 in state. Check the current price sheet against your own `terraform state list | wc -l` before assuming the numbers work for you.
+A handful of Terraform configurations can grow into hundreds of resources, several environments, and a deployment process nobody fully remembers. Many teams hand that problem to HCP Terraform (formerly Terraform Cloud), which bundles remote state, runs, approvals, and policy checks in one place.
 
-The licensing context has made this worse:
+That convenience has a price, and the price grows with your infrastructure. If your team already uses GitLab for source control and CI/CD, it's fair to ask whether you need a separate platform at all.
 
-- **August 2023:** HashiCorp moved Terraform from MPL 2.0 to the Business Source License 1.1. Internal use is still permitted, but the license restricts offering competing products, and legal teams now review it.
-- **OpenTofu:** The community fork under the Linux Foundation is MPL 2.0 and a drop-in replacement for most workflows. Everything in this article works with it by swapping the binary and image.
-- **IBM's acquisition of HashiCorp:** The deal closed in 2025. Whatever you think of it, pricing and packaging decisions now sit inside a much larger enterprise portfolio, and you should plan for them to change.
+This guide shows how to build a practical alternative from GitLab CI, GitLab Managed Terraform State, and a few open-source tools. The goal isn't to recreate every HCP Terraform feature. It's a reliable delivery workflow built on tools you may already run. We'll cover remote state and locking, merge-request plans, gated deployments, cloud authentication with OIDC, drift detection, and monitoring with Prometheus, Grafana, and Loki.
 
-None of this makes HCP Terraform a bad product. It makes it a **line item that scales with infrastructure size rather than team size**, and that is the pattern that drives teams to look for alternatives.
+## 1. Understanding the Cost of Infrastructure Automation
 
-GitLab CI already provides most of what you are paying a wrapper for:
+Start by looking at how HCP Terraform's pricing relates to the infrastructure you actually manage. Plans change, so check HashiCorp's current pricing page as you go.
+
+HCP Terraform prices by managed resources, so the bill can climb quickly as your infrastructure grows. One Terraform module often creates many underlying resources. A VPC module, for example, might manage route tables, security group rules, IAM attachments, subnet associations, and DNS records. That's one logical component in your architecture, but each of those objects counts toward your total.
+
+A useful starting point is to count what your current Terraform state manages:
+
+```bash
+terraform state list | wc -l
+```
+
+That's a rough count of your managed resources. Compare it with your current pricing tier before deciding whether the cost is justified.
+
+> **A practical observation from engineering:** When I worked at Emerson, I developed Azure Pipelines for compiling and verifying C++ software used in a customized Yocto Linux image. One thing became particularly clear: reliable automation is not simply about executing commands in sequence. Validation, repeatability, and controlled release processes are equally important. The same principle applies to infrastructure automation. Managing Terraform state is only one part of the problem. A good solution also needs reliable validation, predictable execution, access control, and a clear deployment approval process.
+
+### What has changed in the Terraform ecosystem?
+
+A few developments are worth weighing when you choose an automation platform:
+
+* **Terraform’s licensing change:** In August 2023, HashiCorp changed Terraform’s license from MPL 2.0 to the Business Source License 1.1. Internal use remains permitted, but certain competitive commercial uses are restricted. This has led some organizations to review their licensing and long-term platform dependencies.
+* **OpenTofu:** The Linux Foundation-backed fork provides an open-source alternative under MPL 2.0. It supports most existing Terraform workflows and can be substituted in many of the examples in this guide.
+* **IBM’s acquisition of HashiCorp:** The acquisition closed in 2025, bringing HashiCorp’s products into IBM’s broader enterprise portfolio. This is another reason organizations may want to evaluate their long-term infrastructure tooling choices.
+
+None of this makes HCP Terraform a bad product. It's a capable platform. The question is whether its features and pricing make sense for your environment.
+
+### What can GitLab replace?
+
+If your team already uses GitLab, you may already have much of what you need.
 
 | HCP Terraform capability | GitLab-native equivalent |
 |---|---|
@@ -35,20 +64,22 @@ On gitlab.com, CI compute minutes are metered, but jobs on your own runners do n
 
 ## 2. The Architectural Design: GitLab Managed Terraform State
 
-GitLab Managed Terraform State is a standard implementation of Terraform's [`http` backend](https://developer.hashicorp.com/terraform/language/backend/http) protocol. There is no custom provider or plugin. Terraform talks to a REST endpoint scoped to your project:
+GitLab Managed Terraform State is a standard implementation of Terraform's [`http` backend](https://developer.hashicorp.com/terraform/language/backend/http) protocol. There is no custom provider or plugin. For example, project ID `123456789` and state `production` use this GitLab.com endpoint:
 
 ```
-https://<gitlab-host>/api/v4/projects/<project_id>/terraform/state/<state_name>
+https://gitlab.com/api/v4/projects/123456789/terraform/state/production
 ```
 
 The protocol uses four operations:
 
 | Operation | Method | Endpoint | Purpose |
 |---|---|---|---|
-| Read state | `GET` | `/terraform/state/<name>` | Fetch the latest state version |
-| Write state | `POST` | `/terraform/state/<name>` | Store a new state version |
-| Lock | `POST` | `/terraform/state/<name>/lock` | Acquire an exclusive lock (JSON body with lock ID, operation, owner) |
-| Unlock | `DELETE` | `/terraform/state/<name>/lock` | Release the lock |
+| Read state | `GET` | `/terraform/state/production` | Fetch the latest state version |
+| Write state | `POST` | `/terraform/state/production` | Store a new state version |
+| Lock | `POST` | `/terraform/state/production/lock` | Acquire an exclusive lock (JSON body with lock ID, operation, owner) |
+| Unlock | `DELETE` | `/terraform/state/production/lock` | Release the lock |
+
+Use your project's actual numeric ID and state name in place of the sample values above.
 
 Terraform acquires the lock before reading state for any operation that can write. If a lock already exists, GitLab rejects the request with a conflict-class status (409 or 423). Terraform's HTTP backend treats both as "lock held," prints the holder's lock metadata (who, which operation, when), and either waits (`-lock-timeout`) or fails. Two overlapping pipelines therefore cannot both mutate the same state, regardless of how the jobs were scheduled.
 
@@ -97,7 +128,7 @@ Operational notes:
 
 - **Authentication:** Inside pipelines, the backend authenticates with username `gitlab-ci-token` and the `CI_JOB_TOKEN` as the password. No static state credentials exist anywhere. Writing state through the job token requires the Maintainer role for the user who triggered the job, and reading requires Developer. Confirm against your GitLab version's docs.
 - **Encryption:** GitLab stores state encrypted at rest. State files frequently contain secrets, so this matters.
-- **Stuck locks:** If a runner is killed mid-apply, the lock persists. Release it from the project's Terraform states page (Operate → Terraform states) or with `terraform force-unlock <LOCK_ID>`. Verify that nothing is still running before you do.
+- **Stuck locks:** If a runner is killed mid-apply, the lock persists. Release it from the project's Terraform states page (Operate → Terraform states) or with `terraform force-unlock "$TF_LOCK_ID"`, after setting `TF_LOCK_ID` to the exact ID Terraform reported. Verify that nothing is still running before you do.
 - **Backend config:** The backend block stays empty. All connection details come from `TF_HTTP_*` environment variables, so the same code works locally and in CI.
 
 ```hcl
@@ -124,8 +155,10 @@ Required CI/CD variables (Settings → CI/CD → Variables):
 
 | Variable | Flags | Purpose |
 |---|---|---|
-| `PLAN_ENC_KEY` | Masked, Protected | Passphrase for encrypting saved plans (generate with `openssl rand -base64 32`) |
-| `AWS_ROLE_ARN` | Protected | Role assumed through OIDC (swap for your provider's equivalent) |
+| `PLAN_ENC_KEY` | Masked, Protected | Passphrase for encrypting saved plans in default-branch pipelines (generate with `openssl rand -base64 32`) |
+| `AWS_ROLE_ARN_PLAN` | Protected | Read-only cloud role for default-branch plans |
+| `AWS_ROLE_ARN_APPLY` | Protected | Write-capable cloud role for applies |
+| `AWS_ROLE_ARN_MR` | Unprotected | Read-only cloud role for trusted, same-project MR plans. An ARN is an identifier, not a credential; restrict the role's trust policy and permissions. |
 
 ```yaml
 # .gitlab-ci.yml
@@ -191,8 +224,8 @@ variables:
     # natively, never echo it, never enable `set -x` in this job.
     - umask 077
     - printf '%s' "${GITLAB_OIDC_TOKEN}" > "${AWS_WEB_IDENTITY_TOKEN_FILE}"
-    # AWS_ROLE_ARN comes from a protected CI/CD variable. The AWS provider performs
-    # AssumeRoleWithWebIdentity automatically when these two variables are present.
+    # Each job maps its approved role ARN into AWS_ROLE_ARN. The AWS provider
+    # performs AssumeRoleWithWebIdentity automatically with these variables.
     - mkdir -p "${TF_PLUGIN_CACHE_DIR}"
     - cd "${CI_PROJECT_DIR}/${TF_ROOT}"
   cache:
@@ -237,16 +270,13 @@ tflint:
 plan:
   extends: .tf_auth
   stage: plan
+  variables:
+    AWS_ROLE_ARN: $AWS_ROLE_ARN_PLAN
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
   script:
     - terraform init
-    - |
-      # MR plans are speculative and read-only: don't hold the state lock, so
-      # reviewers never block a real apply. Main-branch plans take the lock.
-      if [ "$CI_PIPELINE_SOURCE" = "merge_request_event" ]; then LOCK=false; else LOCK=true; fi
-      terraform plan -lock=${LOCK} -lock-timeout=120s -out=tfplan
+    - terraform plan -lock-timeout=120s -out=tfplan
     # Summarize the diff for the job log and for metrics (section 4).
     - terraform show -json tfplan > plan.json
     - |
@@ -267,12 +297,27 @@ plan:
     expire_in: 2 hours      # SECURITY: short-lived. A stale plan is also rejected by Terraform.
     access: developer       # SECURITY: only Developer+ can download; not public or Reporter-visible
 
+# Same-project MR preview only. Fork MRs deliberately receive no cloud role or
+# state access; they still run the validate-stage jobs above.
+plan_mr:
+  extends: .tf_auth
+  stage: plan
+  variables:
+    AWS_ROLE_ARN: $AWS_ROLE_ARN_MR
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_PROJECT_PATH == $CI_MERGE_REQUEST_TARGET_PROJECT_PATH && $CI_MERGE_REQUEST_SOURCE_PROJECT_PATH == $CI_MERGE_REQUEST_TARGET_PROJECT_PATH'
+  script:
+    - terraform init
+    - terraform plan -lock=false -no-color
+
 # ---------------------------------------------------------------------------
 # Stage: apply  (manual, default branch only, gated by protected environment)
 # ---------------------------------------------------------------------------
 apply:
   extends: .tf_auth
   stage: apply
+  variables:
+    AWS_ROLE_ARN: $AWS_ROLE_ARN_APPLY
   needs:
     - job: plan
       artifacts: true
@@ -311,7 +356,7 @@ The YAML alone does not enforce "apply only after MR approval." Configure these 
 1. **Settings → Repository → Protected branches:** Protect `main`. Set "Allowed to push" to No one and "Allowed to merge" to Maintainers.
 2. **Settings → Merge requests → Merge request approvals:** Require at least one approval from Code Owners. Enable "Prevent approval by author" and "Remove all approvals when commits are added."
 3. **Settings → CI/CD → Protected environments:** Add `production` and require approval from a named group. The manual `apply` button then needs a second human, even for someone who can merge.
-4. **Settings → CI/CD → Variables:** Set `PLAN_ENC_KEY` and any provider secrets as **Protected** so they are exposed only to pipelines on protected refs. The trade-off is that MR pipelines can't see them. MR plans need read-only credentials, either through a second OIDC role scoped to MR refs or an unprotected read-only token.
+4. **Settings → CI/CD → Variables:** Set `PLAN_ENC_KEY`, `AWS_ROLE_ARN_PLAN`, and `AWS_ROLE_ARN_APPLY` as **Protected**. `plan_mr` does not save a plan artifact, so it does not need `PLAN_ENC_KEY`. Set the non-secret `AWS_ROLE_ARN_MR` as an unprotected variable, and scope its OIDC role to read-only cloud permissions and this project's branches. Only trusted, same-project merge requests run that authenticated plan; fork merge requests get validation jobs only. GitLab state access is still checked using the triggering user's `CI_JOB_TOKEN` permissions.
 
 ### AWS trust policy (OIDC)
 
@@ -320,18 +365,35 @@ Scope the role to this project and branch. Without `sub` pinning, any project on
 ```json
 {
   "Effect": "Allow",
-  "Principal": { "Federated": "arn:aws:iam::<ACCOUNT_ID>:oidc-provider/gitlab.example.com" },
+  "Principal": { "Federated": "arn:aws:iam::123456789012:oidc-provider/gitlab.com" },
   "Action": "sts:AssumeRoleWithWebIdentity",
   "Condition": {
     "StringEquals": {
-      "gitlab.example.com:aud": "sts.amazonaws.com",
-      "gitlab.example.com:sub": "project_path:my-group/my-infra:ref_type:branch:ref:main"
+      "gitlab.com:aud": "sts.amazonaws.com",
+      "gitlab.com:sub": "project_path:cloudnativecraft/platform-infrastructure:ref_type:branch:ref:main"
     }
   }
 }
 ```
 
-Use separate roles for `plan` (read-only, MR refs allowed) and `apply` (write, `main` only). Not every provider supports OIDC. DigitalOcean and Vultr, for example, authenticate with API tokens. Store those as masked, protected variables scoped to the `production` environment, and rotate them on a schedule.
+The account ID and project path are concrete examples; use the AWS account that owns the role and the exact GitLab path for your project. Use this main-branch trust policy for `AWS_ROLE_ARN_APPLY` and a read-only policy for `AWS_ROLE_ARN_PLAN`.
+
+For `AWS_ROLE_ARN_MR`, create a separate role with read-only cloud permissions and a trust condition scoped to this project’s branch refs. For example:
+
+```json
+"Condition": {
+  "StringEquals": {
+    "gitlab.com:aud": "sts.amazonaws.com"
+  },
+  "StringLike": {
+    "gitlab.com:sub": "project_path:cloudnativecraft/platform-infrastructure:ref_type:branch:ref:*"
+  }
+}
+```
+
+Replace the sample project path. This role can be assumed by branch jobs in that project, so keep its permissions read-only and minimal. Terraform state can contain secrets; only enable authenticated MR plans for contributors who are trusted to read that state. Not every provider supports OIDC. DigitalOcean and Vultr, for example, authenticate with API tokens. Store write-capable tokens as masked, protected variables scoped to the `production` environment, and rotate them on a schedule.
+
+The default-branch `plan` and `apply` jobs use separate roles: read-only for plans and write access for applies. The MR plan uses neither protected role nor the saved-plan encryption key.
 
 ## 4. Extending Observability with Grafana, Prometheus, and Loki
 
@@ -386,6 +448,8 @@ Two gotchas:
 drift:
   extends: [.tf_auth, .observability]
   stage: ops
+  variables:
+    AWS_ROLE_ARN: $AWS_ROLE_ARN_PLAN
   rules:
     - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "drift"
   script:
@@ -409,7 +473,7 @@ groups:
   - name: terraform-ci
     rules:
       - alert: TerraformDriftDetected
-        expr: tf_drift_detected{project="my-group-my-infra"} == 1
+        expr: tf_drift_detected{project="cloudnativecraft-platform-infrastructure"} == 1
         for: 5m
         labels: { severity: warning }
         annotations:
@@ -451,7 +515,7 @@ sum(count_over_time({app="terraform-ci", ci_job="apply"}[30d]))
 sum by (project) (count_over_time({app="terraform-ci", ci_job="apply"}[1d]))
 ```
 
-For runner-host logs such as executor crashes, OOM kills, and registration errors, tail the service with Grafana Alloy. Job output itself lives in GitLab, so these logs cover runner lifecycle, not Terraform output.
+For runner-host logs such as executor crashes, OOM kills, and registration errors, tail the service with Grafana Alloy. Set `LOKI_URL` in Alloy's process environment to your Loki push endpoint. Job output itself lives in GitLab, so these logs cover runner lifecycle, not Terraform output.
 
 ```alloy
 loki.source.journal "gitlab_runner" {
@@ -462,7 +526,7 @@ loki.source.journal "gitlab_runner" {
 
 loki.write "default" {
   endpoint {
-    url = "https://loki.example.com/loki/api/v1/push"
+    url = sys.env("LOKI_URL")
   }
 }
 ```
@@ -480,7 +544,7 @@ If you also want pipeline duration, queue time, and per-ref status without custo
 
 ## 5. Infrastructure Placement & Production Recommendations
 
-*Disclosure: provider links in this section are affiliate links. We earn a commission if you sign up, at no cost to you. Evaluate against your own requirements and verify current pricing yourself.*
+*Disclosure: Vultr links marked “affiliate” use a referral link; we may earn a commission if you sign up, at no extra cost to you. DigitalOcean and AWS links go directly to those providers. Verify current pricing and terms yourself.*
 
 This architecture has two infrastructure footprints: the **runner fleet** that executes Terraform and the **object storage** for caches and state backups. Neither needs a hyperscaler's premium tier. Hyperscaler pricing buys you IAM depth, compliance certifications, and a large service catalog. A CI runner host uses none of that.
 
@@ -488,8 +552,8 @@ This architecture has two infrastructure footprints: the **runner fleet** that e
 
 For a small-to-mid team, a single Docker-executor runner on a general-purpose VM is enough: 2 vCPU and 4 GB RAM handles typical `plan`/`apply` concurrency of 2–4 jobs. The memory-hungry part is large provider binaries (AWS, Azure) loading in parallel, not CPU.
 
-- **[DigitalOcean]({{AFFILIATE_URL_DIGITALOCEAN}}) Droplets:** Predictable flat pricing and simple networking. Use a Droplet for the Docker executor. If you want ephemeral per-job pods, [DigitalOcean Kubernetes (DOKS)]({{AFFILIATE_URL_DIGITALOCEAN}}) pairs with GitLab's Kubernetes executor. Verify current control-plane pricing, since the standard control plane has historically been free.
-- **[Vultr](https://www.vultr.com/?ref=9935169):** A comparable option with a wide region footprint, which helps if you want runners geographically close to the APIs you provision. Vultr Kubernetes Engine https://www.vultr.com/?ref=9935169 fills the same role as DOKS.
+- **[DigitalOcean Droplets](https://www.digitalocean.com/products/droplets):** Predictable flat pricing and simple networking. Use a Droplet for the Docker executor. For ephemeral per-job pods, [DigitalOcean Kubernetes (DOKS)](https://www.digitalocean.com/products/kubernetes) pairs with GitLab's Kubernetes executor. Verify current control-plane pricing before choosing a cluster.
+- **[Vultr (affiliate)](https://www.vultr.com/?ref=9935169):** A comparable option with a wide region footprint, which helps if you want runners geographically close to the APIs you provision. [Vultr Kubernetes Engine (affiliate)](https://www.vultr.com/?ref=9935169) fills the same role as DOKS.
 
 Both have first-party Terraform providers, so the runner infrastructure can be bootstrapped by this same pipeline once the first runner exists.
 
@@ -501,7 +565,7 @@ GitLab Managed State covers your state. Object storage covers everything adjacen
 2. **State backups:** Managed state is versioned, but a defense-in-depth copy in an independent system is cheap insurance against a GitLab-side incident or an accidental project deletion.
 3. **Plan archives and audit artifacts:** Longer retention than the 2-hour CI artifact window, if compliance requires it.
 
-[DigitalOcean Spaces]({{AFFILIATE_URL_DIGITALOCEAN}}), [Vultr Object Storage]({{AFFILIATE_URL_VULTR}}), and [AWS S3]({{AFFILIATE_URL_AWS}}) all speak the S3 API. Choose AWS S3 if your workloads already live there and you want IAM-native access control and Object Lock. Choose Spaces or Vultr if you want simpler billing and the lowest cost for non-enterprise workloads. Compare egress terms before committing, because that is where object-storage cost surprises usually come from.
+[DigitalOcean Spaces](https://www.digitalocean.com/products/spaces), [Vultr Object Storage (affiliate)](https://www.vultr.com/?ref=9935169), and [AWS S3](https://aws.amazon.com/s3/) all speak the S3 API. Choose AWS S3 if your workloads already live there and you want IAM-native access control and Object Lock. Spaces and Vultr are often simpler to bill and can cost less for smaller workloads, but compare current pricing first. Check egress terms in particular, because that is where object-storage cost surprises usually come from.
 
 **Runner cache configuration** (`/etc/gitlab-runner/config.toml`, DigitalOcean Spaces example):
 
@@ -510,7 +574,7 @@ concurrent = 4
 
 [[runners]]
   name = "tf-runner-01"
-  url = "https://gitlab.example.com"
+  url = "https://gitlab.com"
   executor = "docker"
   [runners.docker]
     image = "alpine:3.20"
@@ -520,15 +584,13 @@ concurrent = 4
     Type = "s3"
     Shared = true
     [runners.cache.s3]
-      ServerAddress = "nyc3.digitaloceanspaces.com"
+      ServerAddress = "ams3.digitaloceanspaces.com"
       BucketName    = "ci-runner-cache"
-      BucketLocation = "nyc3"
-      AccessKey     = "<SPACES_ACCESS_KEY>"
-      SecretKey     = "<SPACES_SECRET_KEY>"
+      BucketLocation = "ams3"
       Insecure      = false
 ```
 
-For Vultr Object Storage, change `ServerAddress` and `BucketLocation` to your Vultr region endpoint. For AWS S3, drop `ServerAddress` and set only the region.
+This example uses DigitalOcean Spaces in Amsterdam (`ams3`). Create the bucket in that region, then provide `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` to the GitLab Runner service environment; keep the credentials out of `config.toml`. For Vultr Object Storage, use the endpoint and region for your Vultr bucket. For AWS S3, drop `ServerAddress` and set the bucket's AWS region.
 
 **Scheduled state backup job** (create a schedule with `SCHEDULE_TYPE=backup`):
 
@@ -541,7 +603,7 @@ state-backup:
   variables:
     AWS_ACCESS_KEY_ID: ${BACKUP_S3_KEY}
     AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_SECRET}
-    AWS_DEFAULT_REGION: us-east-1
+    AWS_DEFAULT_REGION: eu-west-1
     # Recent AWS CLI versions send integrity checksums that some S3-compatible
     # providers reject. Restore the pre-2025 behavior for portability.
     AWS_REQUEST_CHECKSUM_CALCULATION: when_required

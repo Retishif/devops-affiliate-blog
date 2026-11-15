@@ -1,25 +1,19 @@
+---
+title: Datadog Alternative with Grafana, Loki, and Prometheus
+description: A self-hosted Grafana, Loki, and Prometheus stack as a Datadog alternative. Cost drivers, label design, a Docker Compose reference setup, and sizing guidance.
+---
+
 # Building a Cost-Effective Datadog Alternative with Grafana, Loki, and Prometheus
 
-A self-hosted observability stack can be a practical alternative to SaaS
-platforms such as Datadog and Splunk---particularly when log volume is
-high, retention requirements are long, and the team is comfortable
-operating infrastructure.
+> **Advertising Disclosure:** Cloud Native Craft is reader-supported. When you buy or sign up through links on this site, we may earn an affiliate commission or advertising fee at no additional cost to you. Opinions and technical evaluations remain our own.
 
-The main architectural advantage is control over where telemetry is
-processed and stored. Instead of paying a vendor to ingest and retain
-every log line, you can use Grafana Loki to index a small set of bounded
-labels, store compressed log chunks in S3-compatible object storage, and
-query those logs with LogQL. Prometheus handles metrics, while Grafana
-provides dashboards and a shared interface.
+A self-hosted observability stack can be a practical alternative to SaaS platforms like Datadog and Splunk. It works best when log volume is high, retention requirements are long, and your team is comfortable operating infrastructure.
 
-That does not make observability free. You still pay for compute,
-storage, requests, network transfer, backups, and the engineering time
-required to operate the platform. The objective is to replace variable
-SaaS charges with infrastructure costs you can measure and manage.
+The main advantage is control over where your telemetry is processed and stored. Instead of paying a vendor to ingest and retain every log line, you can use Grafana Loki to index a small set of bounded labels, keep compressed log chunks in S3-compatible object storage, and query them with LogQL. Prometheus handles metrics, and Grafana gives you dashboards and a shared interface.
 
-This guide explains the cost model, architecture, cardinality risks, a
-Docker Compose reference deployment, and how to size and place the
-infrastructure.
+That doesn't make observability free. You still pay for compute, storage, requests, network transfer, backups, and the engineering time to run the platform. The point is to swap variable SaaS charges for infrastructure costs you can measure and manage.
+
+> **Engineer's note:** On a 5G NR project, I used Grafana to monitor uplink and downlink throughput in Mbps and BLER. That experience shaped my approach to observability: start with the signals that answer operational questions, not every metric a system can emit.
 
 ## 1. The Economics of Log Ingestion: Why Teams Migrate Off SaaS APM
 
@@ -33,34 +27,13 @@ metrics, and longer retention keeps more data billable.
 The exact pricing model differs by vendor and contract, but these cost
 drivers are common:
 
-  -----------------------------------------------------------------------
-  Cost driver             Why it grows            What to review
-  ----------------------- ----------------------- -----------------------
-  Host or container       Adding nodes and        Which hosts and
-  monitoring              workloads can increase  containers genuinely
-                          the monitored-host      need full monitoring?
-                          count.                  
-
-  Custom metrics and      Each unique label       Are labels bounded? Are
-  cardinality             combination can create  metrics duplicated or
-                          another time series and unnecessarily granular?
-                          may affect billing or   
-                          platform limits.        
-
-  Log ingestion and       High-volume logs can    Which logs are useful,
-  indexing                create substantial      and which can be
-                          recurring ingestion     filtered or sampled?
-                          charges.                
-
-  Log retention           Keeping indexed data    Which logs need
-                          for longer periods can  searchable retention,
-                          increase the bill.      and for how long?
-
-  Traces and add-on       APM, profiling,         Which features are
-  features                synthetics, and other   actually used by the
-                          capabilities may be     team?
-                          priced separately.      
-  -----------------------------------------------------------------------
+| Cost driver | Why it grows | What to review |
+|---|---|---|
+| Host or container monitoring | Adding nodes and workloads can increase the monitored-host count. | Which hosts and containers genuinely need full monitoring? |
+| Custom metrics and cardinality | Each unique label combination can create another time series and may affect billing or platform limits. | Are labels bounded? Are metrics duplicated or unnecessarily granular? |
+| Log ingestion and indexing | High-volume logs can create substantial recurring ingestion charges. | Which logs are useful, and which can be filtered or sampled? |
+| Log retention | Keeping indexed data for longer periods can increase the bill. | Which logs need searchable retention, and for how long? |
+| Traces and add-on features | APM, profiling, synthetics, and other capabilities may be priced separately. | Which features does the team actually use? |
 
 Before migrating, build a baseline from real invoices and usage reports.
 Include ingestion volume, indexed retention, monitored hosts, custom
@@ -97,11 +70,7 @@ storage tier does not automatically make expensive queries cheap.
 
 ### What kind of savings are realistic?
 
-A reduction of 70--85% is sometimes used as a migration target, but it
-should not be presented as a guaranteed Loki outcome. Savings depend on
-the existing SaaS contract, the volume and type of telemetry, retention,
-query patterns, infrastructure prices, and the cost of operating the
-replacement.
+You'll sometimes see 70–85% quoted as a migration target. Treat it as a hypothesis to test, not a result Loki guarantees. Actual savings depend on your SaaS contract, the volume and type of telemetry, retention, query patterns, infrastructure prices, and what it costs to operate the replacement.
 
 Use a total-cost comparison:
 
@@ -113,10 +82,7 @@ Use a total-cost comparison:
 -   **Operations:** upgrades, security patching, capacity planning,
     incident response, and on-call ownership.
 
-For example, if a team currently spends €4,000 per month and the
-replacement costs €1,200 per month---including infrastructure and
-incremental operating costs---the modeled reduction is 70%. These
-figures are illustrative, not vendor quotes.
+For example, say a team spends €4,000 per month today, and the replacement costs €1,200 per month including infrastructure and the extra operating work. That's a modeled reduction of 70%. The figures are illustrative, not vendor quotes.
 
 The honest business case is not "Loki is 85% cheaper." It is: "We
 measured our workload, modeled the full operating cost, and found that
@@ -173,30 +139,13 @@ remote-write backend separately.
 Choose the deployment mode based on workload size and availability
 requirements.
 
-  -----------------------------------------------------------------------
-  Mode                    Suitable use            Trade-off
-  ----------------------- ----------------------- -----------------------
-  Monolithic              Evaluation, smaller     Multiple
-                          installations, and      responsibilities share
-                          simpler deployments     one process and its
-                                                  resource limits.
+| Mode | Suitable use | Trade-off |
+|---|---|---|
+| Monolithic | Evaluation, smaller installations, and simpler deployments | Multiple responsibilities share one process and its resource limits. |
+| Simple Scalable Deployment (SSD) | Existing installations that separate read, write, and backend targets | Check the current Loki lifecycle and migration guidance before choosing it for a new deployment. |
+| Microservices | Larger systems that need independent scaling of Loki components | More services, configuration, networking, and operational work. |
 
-  Simple Scalable         Existing installations  Check the current Loki
-  Deployment (SSD)        that separate read,     lifecycle and migration
-                          write, and backend      guidance before
-                          targets                 choosing it for a new
-                                                  deployment.
-
-  Microservices           Larger systems that     More services,
-                          need independent        configuration,
-                          scaling of Loki         networking, and
-                          components              operational work.
-  -----------------------------------------------------------------------
-
-For a new installation, check the current Loki documentation before
-choosing SSD. Grafana's deployment guidance and lifecycle
-recommendations can change between releases. Do not build a long-lived
-platform around a deployment mode without checking its support status.
+For a new installation, check the current Loki documentation before choosing SSD. Grafana's deployment guidance and lifecycle recommendations change between releases, so confirm a mode's support status before you build a long-lived platform around it.
 
 ### What "stateless" really means
 
@@ -236,39 +185,18 @@ pressure on the index, memory, and ingestion path.
 
 ### Good labels and bad labels
 
-  -----------------------------------------------------------------------
-  Field                   Typical cardinality     Recommendation
-  ----------------------- ----------------------- -----------------------
-  `service_name`          Bounded by the number   Good stream label
-                          of services             
-
-  `environment`           Usually very low        Good stream label
-
-  `cluster`               Bounded if cluster      Usually suitable
-                          count is controlled     
-
-  `namespace`             Depends on cluster      Suitable when
-                          practices               controlled
-
-  `level`                 Small set such as       Good stream label
-                          `debug`, `info`,        
-                          `warn`, `error`         
-
-  `request_id`            Potentially unique per  Keep in the log body or
-                          request                 structured metadata
-
-  `user_id`               Potentially very large  Do not use as a stream
-                                                  label
-
-  `session_id`            Potentially unique per  Do not use as a stream
-                          session                 label
-
-  `client_ip`             Potentially large and   Usually keep in the log
-                          variable                body
-
-  `trace_id`              Unique per trace        Keep in the log body or
-                                                  structured metadata
-  -----------------------------------------------------------------------
+| Field | Typical cardinality | Recommendation |
+|---|---|---|
+| `service_name` | Bounded by the number of services | Good stream label |
+| `environment` | Usually very low | Good stream label |
+| `cluster` | Bounded if cluster count is controlled | Usually suitable |
+| `namespace` | Depends on cluster practices | Suitable when controlled |
+| `level` | Small set such as `debug`, `info`, `warn`, `error` | Good stream label |
+| `request_id` | Potentially unique per request | Keep in the log body or structured metadata |
+| `user_id` | Potentially very large | Do not use as a stream label |
+| `session_id` | Potentially unique per session | Do not use as a stream label |
+| `client_ip` | Potentially large and variable | Usually keep in the log body |
+| `trace_id` | Unique per trace | Keep in the log body or structured metadata |
 
 A poor label design might look like this:
 
@@ -404,17 +332,15 @@ Create a private `.env` file next to `docker-compose.yml`:
 
 ``` dotenv
 LOKI_S3_BUCKET=observability-prod-loki-logs
-LOKI_S3_ENDPOINT=nyc3.digitaloceanspaces.com
-LOKI_S3_REGION=nyc3
-LOKI_S3_ACCESS_KEY_ID=replace-with-your-real-access-key
-LOKI_S3_SECRET_ACCESS_KEY=replace-with-your-real-secret-key
-GRAFANA_ADMIN_PASSWORD=replace-with-a-unique-strong-password
+LOKI_S3_ENDPOINT=ams3.digitaloceanspaces.com
+LOKI_S3_REGION=ams3
 ```
 
-The endpoint and region above are an example for DigitalOcean Spaces.
-Change them to match the bucket and region you actually provision.
-Replace both credential values and the Grafana password before starting
-the services.
+The endpoint and region above are for DigitalOcean Spaces in Amsterdam.
+Create the bucket in that region. Supply `LOKI_S3_ACCESS_KEY_ID`,
+`LOKI_S3_SECRET_ACCESS_KEY`, and `GRAFANA_ADMIN_PASSWORD` through the
+shell environment or a secret manager; do not put credential values in
+`.env` or commit them.
 
 Add `.env` to `.gitignore`:
 
@@ -502,7 +428,7 @@ Start Loki with environment-variable expansion enabled:
 -config.expand-env=true
 ```
 
-Important points:
+A few things to note about this configuration:
 
 -   `auth_enabled: false` disables Loki's tenant authentication. Do not
     expose this endpoint directly to untrusted networks. Put
@@ -631,6 +557,9 @@ services:
     command:
       - -config.file=/etc/loki/loki-config.yaml
       - -config.expand-env=true
+    environment:
+      LOKI_S3_ACCESS_KEY_ID: ${LOKI_S3_ACCESS_KEY_ID:?set LOKI_S3_ACCESS_KEY_ID}
+      LOKI_S3_SECRET_ACCESS_KEY: ${LOKI_S3_SECRET_ACCESS_KEY:?set LOKI_S3_SECRET_ACCESS_KEY}
     env_file:
       - .env
     volumes:
@@ -795,9 +724,7 @@ failure-domain-aware placement.
 
 ## 5. Infrastructure Sizing & Storage Placement Recommendations
 
-Disclosure: provider links in this section are affiliate links. We earn
-a commission if you sign up, at no cost to you. Evaluate against your
-own requirements and verify current pricing yourself.
+*Disclosure: the Vultr link in this section is an affiliate link and is marked “affiliate.” We may earn a commission if you sign up, at no extra cost to you. The DigitalOcean and AWS links go directly to those providers. Check current pricing and terms yourself.*
 
 The cheapest VM is not necessarily the cheapest observability platform.
 The useful comparison is the total cost of compute, object storage,
@@ -821,27 +748,12 @@ These are initial planning ranges, not fixed requirements. Actual
 resource use depends on log volume, compression, label cardinality,
 query patterns, concurrency, and retention.
 
-  -----------------------------------------------------------------------
-  Workload                Initial compute         Local storage starting
-                          allocation              point
-  ----------------------- ----------------------- -----------------------
-  Lab or evaluation,      2--4 vCPU, 8 GB RAM     50--100 GB SSD
-  below 5 GB/day                                  
-
-  Small production, 5--20 4--8 vCPU, 16--32 GB    100--250 GB SSD
-  GB/day                  RAM                     
-
-  Medium production,      8--16 vCPU, 32--64 GB   250--500 GB SSD/NVMe
-  20--100 GB/day          RAM as a starting pool; per appropriately sized
-                          separate read/write     node
-                          capacity when           
-                          measurements justify it 
-
-  Larger workloads, above Benchmark a distributed Size each node for its
-  100 GB/day              deployment and scale    WAL, caches, temporary
-                          components              files, and recovery
-                          independently           needs
-  -----------------------------------------------------------------------
+| Workload | Initial compute allocation | Local storage starting point |
+|---|---|---|
+| Lab or evaluation, below 5 GB/day | 2–4 vCPU, 8 GB RAM | 50–100 GB SSD |
+| Small production, 5–20 GB/day | 4–8 vCPU, 16–32 GB RAM | 100–250 GB SSD |
+| Medium production, 20–100 GB/day | 8–16 vCPU, 32–64 GB RAM as a starting pool; separate read/write capacity when measurements justify it | 250–500 GB SSD/NVMe per appropriately sized node |
+| Larger workloads, above 100 GB/day | Benchmark a distributed deployment and scale components independently | Size each node for its WAL, caches, temporary files, and recovery needs |
 
 These ingestion bands refer to raw incoming log volume, not compressed
 object-storage usage. Two workloads with the same daily volume can have
@@ -865,14 +777,14 @@ capacity.
 
 **Write path: distributors and ingesters**
 
-A small-to-medium starting point might be 4--8 vCPU and 16--32 GB RAM
+A small-to-medium starting point might be 4–8 vCPU and 16–32 GB RAM
 for an appropriately sized worker group. Prioritize sustained ingestion
 throughput, memory headroom, predictable disk latency, and persistent
 storage for the WAL.
 
 **Read path: query frontends and queriers**
 
-Start benchmarking with 4--8 vCPU and 16--32 GB RAM for a small query
+Start benchmarking with 4–8 vCPU and 16–32 GB RAM for a small query
 worker group. Increase capacity when concurrent investigations, wide
 time ranges, or expensive parsing expressions cause query latency to
 rise. Query workers benefit from CPU, cache memory, and sufficient
@@ -880,13 +792,12 @@ network throughput to object storage.
 
 **Backend: compaction and retention**
 
-A small backend component might start around 2--4 vCPU and 8--16 GB RAM.
+A small backend component might start around 2–4 vCPU and 8–16 GB RAM.
 Size it against compaction duration, retention workload, and storage
 request rates. Provide enough scratch space and monitor deletion
 backlogs.
 
-These are planning ranges, not vendor sizing guarantees. Benchmark with
-representative data before making a capacity commitment.
+Treat all of these as planning ranges. Benchmark with representative data before you commit to capacity.
 
 ### 5.3 Estimate object-storage capacity
 
@@ -957,8 +868,8 @@ Useful references:
 
 #### Vultr: High Frequency Compute, VKE, and Object Storage
 
-[**Vultr**](https://www.vultr.com/?ref=9935169) is another option to benchmark,
-particularly when its regional compute and storage offerings fit the
+[**Vultr (affiliate)**](https://www.vultr.com/?ref=9935169) is another option to benchmark,
+particularly when its regional compute and storage offerings fit your
 deployment.
 
 -   **High Frequency Compute:** Evaluate for CPU-sensitive log
@@ -1076,23 +987,14 @@ Before treating the migration as complete, verify that:
 -   [ ] Image versions are pinned, tested, and covered by an upgrade and
     rollback plan.
 
-## Conclusion
+## Bottom line
 
-A Grafana, Loki, and Prometheus stack can be a strong alternative to
-SaaS observability for teams that need control over log retention,
-storage placement, and infrastructure costs.
+Self-hosting is worth it only when measured savings exceed compute,
+storage, transfer, backup, and the time it takes to operate the stack.
+Start with one representative workload and move on only after it meets
+your query, retention, security, and availability requirements. If it
+doesn't, a managed service may be cheaper in practice.
 
-The savings do not come from one configuration switch. They come from
-making several engineering decisions well: keep labels bounded, store
-durable log data in suitable object storage, control query scope, size
-compute from measurements, and account for network and operational
-costs.
+## Related
 
-DigitalOcean, Vultr, and AWS are all viable candidates, but the right
-choice depends on the actual workload, S3 compatibility, regional
-transfer economics, and the team's existing cloud expertise.
-
-Start with a representative workload and a complete cost model. If the
-self-hosted stack meets the required query performance, retention,
-security, and availability targets at a lower total cost, the migration
-has a defensible engineering case.
+- [How Much Does Datadog Really Cost at Scale?](/datadog-cost-at-scale): a worked cost model for estimating what you could save before migrating.

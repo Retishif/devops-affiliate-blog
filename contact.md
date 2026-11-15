@@ -1,6 +1,6 @@
 ---
-title: Contact | Cloud Native & DevOps Architecture
-description: Send corrections, suggestions, and technical feedback for Cloud Native & DevOps Architecture.
+title: Contact
+description: Send corrections, suggestions, and technical feedback for Cloud Native Craft.
 ---
 
 # Contact
