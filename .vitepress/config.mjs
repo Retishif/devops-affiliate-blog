@@ -27,6 +27,7 @@ export default defineConfig({
   },
   head: [
     ['meta', { name: 'google-site-verification', content: 'fwyKlyeNRyzY5nPrCs6tpvdjhO8ghfy7Oll4bHRHseI' }],
+    ['meta', { name: 'google-site-verification', content: 'P5SR0wJajXYmB2WQUZhu-ZLjtqKrbxi4LGRyQqGiZb8' }],
     ['meta', { name: 'theme-color', content: '#ffffff' }]
   ],
   themeConfig: {
