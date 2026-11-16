@@ -11,7 +11,7 @@ A product's affiliate program doesn't decide whether we recommend it. Recommenda
 
 ## How to identify affiliate links
 
-Active affiliate links are labeled “(affiliate)” in the text or covered by a disclosure note nearby. Links marked “affiliate URL pending” are placeholders that currently go directly to the provider and do not track referrals; they will be replaced with affiliate URLs if the program approves the site. Active referral links carry the `rel="sponsored"` attribute in the page's HTML, so search engines can identify paid placements.
+Active affiliate links are labeled “(affiliate)” in the text or covered by a disclosure note nearby. Current affiliate partners are DigitalOcean (through Awin) and Vultr. Active referral links carry the `rel="sponsored"` attribute in the page's HTML, so search engines can identify paid placements.
 
 ## Verify before you buy
 

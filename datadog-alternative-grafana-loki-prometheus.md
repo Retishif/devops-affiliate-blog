@@ -5,7 +5,7 @@ description: A self-hosted Grafana, Loki, and Prometheus stack as a Datadog alte
 
 # Building a Cost-Effective Datadog Alternative with Grafana, Loki, and Prometheus
 
-> **Advertising Disclosure:** Cloud Native Craft is reader-supported. When you buy or sign up through links on this site, we may earn an affiliate commission or advertising fee at no additional cost to you. Opinions and technical evaluations remain our own.
+> **Affiliate disclosure:** We earn commissions when you shop through the links below. The DigitalOcean and Vultr links marked “affiliate” in Section 5 are referral links; if you sign up through them, we may earn a commission at no additional cost to you. Our technical opinions remain our own.
 
 A self-hosted observability stack can be a practical alternative to SaaS platforms like Datadog and Splunk. It works best when log volume is high, retention requirements are long, and your team is comfortable operating infrastructure.
 
@@ -724,7 +724,7 @@ failure-domain-aware placement.
 
 ## 5. Infrastructure Sizing & Storage Placement Recommendations
 
-*Disclosure: the Vultr link in this section is an affiliate link and is marked “affiliate.” We may earn a commission if you sign up, at no extra cost to you. The DigitalOcean and AWS links go directly to those providers. Check current pricing and terms yourself.*
+*Affiliate disclosure: the DigitalOcean and Vultr links marked “affiliate” in this section are referral links; if you sign up through them, we may earn a commission at no extra cost to you. AWS links are direct. Check current pricing and terms yourself.*
 
 The cheapest VM is not necessarily the cheapest observability platform.
 The useful comparison is the total cost of compute, object storage,
@@ -841,7 +841,7 @@ application-level Loki performance.
 
 #### DigitalOcean: Droplets, DOKS, and Spaces
 
-[**DigitalOcean**](https://www.digitalocean.com/) is worth evaluating
+[**DigitalOcean (affiliate)**](https://www.awin1.com/cread.php?awinmid=123996&awinaffid=3152143) is worth evaluating
 when the team wants relatively straightforward cloud infrastructure.
 
 -   **Droplets:** Run a Docker Compose deployment or dedicated Loki

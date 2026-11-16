@@ -14,7 +14,7 @@ export default defineConfig({
       md.renderer.rules.link_open = (tokens, idx, options, env, self) => {
         const html = defaultRender(tokens, idx, options, env, self)
         const href = tokens[idx].attrGet('href') || ''
-        if (!/[?&](ref|aff|affiliate|aff_id)=/i.test(href)) return html
+        if (!/[?&](ref|aff|affiliate|aff_id)=|awin1\.com\/cread\.php/i.test(href)) return html
         const rel = 'sponsored noopener noreferrer'
         return /\srel="[^"]*"/.test(html)
           ? html.replace(/(\srel=")[^"]*(")/, `$1${rel}$2`)
