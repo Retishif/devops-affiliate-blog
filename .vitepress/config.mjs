@@ -4,7 +4,7 @@ export default defineConfig({
   title: 'Cloud Native Craft',
   description: 'Practical infrastructure, Terraform, CI/CD, and observability guides for DevOps engineers.',
   ignoreDeadLinks: true,
-  srcExclude: ['business/**'],
+  srcExclude: ['business/**', 'blueprints/**'],
   markdown: {
     config(md) {
       // Mark affiliate/referral links as rel="sponsored" (see the Affiliate Disclosure page).
@@ -46,6 +46,10 @@ export default defineConfig({
           {
             text: 'Terraform Cloud Alternative with GitLab CI',
             link: '/terraform-cloud-alternative-gitlab-ci'
+          },
+          {
+            text: 'Migrate HCP Terraform to GitLab CI',
+            link: '/migrating-hcp-terraform-to-gitlab-ci'
           }
         ]
       },

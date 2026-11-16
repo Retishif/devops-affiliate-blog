@@ -1,0 +1,36 @@
+# Pipeline observability for Terraform jobs.
+# Guide: https://cloudnativecraft.com/terraform-cloud-alternative-gitlab-ci
+#
+# Optional CI/CD variables (all masked). Unset means that sink is skipped:
+#   PUSHGATEWAY_URL, PUSHGATEWAY_AUTH ("user:pass")
+#   LOKI_URL,        LOKI_AUTH        ("user:pass")
+#
+# Use as: extends: [.tf_auth, .observability]
+# Do not also define a job-level after_script. Job-level arrays replace inherited
+# ones, so one would silently discard the other.
+.observability:
+  after_script:
+    - apk add --no-cache curl >/dev/null 2>&1 || true
+    - |
+      # after_script runs even when the job failed; CI_JOB_STATUS is set here.
+      OK=0; [ "${CI_JOB_STATUS}" = "success" ] && OK=1
+      if [ -n "${PUSHGATEWAY_URL:-}" ]; then
+        {
+          cat plan.prom 2>/dev/null || true
+          printf 'tf_job_success %s\n' "$OK"
+          printf 'tf_job_last_run_timestamp_seconds %s\n' "$(date +%s)"
+        } | curl -fsS --retry 3 ${PUSHGATEWAY_AUTH:+-u "$PUSHGATEWAY_AUTH"} --data-binary @- \
+          "${PUSHGATEWAY_URL}/metrics/job/terraform_ci/project/${CI_PROJECT_PATH_SLUG}/ci_job/${CI_JOB_NAME}" \
+          || echo "pushgateway push failed (non-fatal)"
+      fi
+      # Structured log line straight to Loki's push API (no agent needed on the runner).
+      if [ -n "${LOKI_URL:-}" ]; then
+        printf '{"streams":[{"stream":{"app":"terraform-ci","project":"%s","ci_job":"%s","status":"%s"},"values":[["%s000000000","pipeline=%s job=%s commit=%s"]]}]}' \
+          "$CI_PROJECT_PATH_SLUG" "$CI_JOB_NAME" "$CI_JOB_STATUS" "$(date +%s)" \
+          "$CI_PIPELINE_ID" "$CI_JOB_ID" "$CI_COMMIT_SHORT_SHA" \
+        | curl -fsS --retry 3 ${LOKI_AUTH:+-u "$LOKI_AUTH"} -H 'Content-Type: application/json' --data-binary @- \
+          "${LOKI_URL}/loki/api/v1/push" \
+          || echo "loki push failed (non-fatal)"
+      fi
+    # SECURITY: always remove the decrypted plan and the OIDC token file, even on failure.
+    - rm -f "${CI_PROJECT_DIR}/${TF_ROOT}/tfplan" /tmp/gitlab_oidc_token

@@ -62,6 +62,8 @@ Here is what you give up:
 
 On gitlab.com, CI compute minutes are metered, but jobs on your own runners do not consume them. Self-hosted GitLab has no such limit. The cost of this setup is the runner host and some object storage, covered in section 5.
 
+Already running workspaces on HCP Terraform? The [migration guide](/migrating-hcp-terraform-to-gitlab-ci) covers moving state, variables, and environments without a double-writer window.
+
 ## 2. The Architectural Design: GitLab Managed Terraform State
 
 GitLab Managed Terraform State is a standard implementation of Terraform's [`http` backend](https://developer.hashicorp.com/terraform/language/backend/http) protocol. There is no custom provider or plugin. For example, project ID `123456789` and state `production` use this GitLab.com endpoint:
@@ -140,7 +142,7 @@ terraform {
 
 ## 3. The Implementation: Production-Grade `.gitlab-ci.yml`
 
-The pipeline has three stages, plus an `ops` stage for scheduled jobs used in later sections. It assumes this layout:
+The pipeline has three stages, plus an `ops` stage for scheduled jobs used in later sections. A standalone copy of this pipeline and the observability template lives in the repository under `blueprints/gitlab-terraform/`. It assumes this layout:
 
 ```
 .

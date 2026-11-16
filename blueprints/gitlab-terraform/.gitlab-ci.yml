@@ -1,0 +1,203 @@
+# Blueprint: GitLab-managed Terraform state, OIDC auth, encrypted plans, gated apply.
+# Guide: https://cloudnativecraft.com/terraform-cloud-alternative-gitlab-ci
+# Copy this file and ci/ into your repo root, put your Terraform in infra/, then set the
+# CI/CD variables listed in README.md. Observability is opt-in: unset URLs are skipped.
+include:
+  - local: ci/observability.gitlab-ci.yml
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+
+stages:
+  - validate
+  - plan
+  - apply
+  - ops
+
+variables:
+  TF_ROOT: infra
+  TF_STATE_NAME: production
+  TF_ADDRESS: ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/terraform/state/${TF_STATE_NAME}
+
+  # --- Terraform behavior in automation ---
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "0"
+  TF_PLUGIN_CACHE_DIR: ${CI_PROJECT_DIR}/.tf-plugin-cache
+
+  # --- GitLab Managed State via the HTTP backend ---
+  # SECURITY: CI_JOB_TOKEN is scoped to this job and expires when the job ends.
+  # No long-lived state credential exists to leak or rotate.
+  TF_HTTP_ADDRESS: ${TF_ADDRESS}
+  TF_HTTP_LOCK_ADDRESS: ${TF_ADDRESS}/lock
+  TF_HTTP_UNLOCK_ADDRESS: ${TF_ADDRESS}/lock
+  TF_HTTP_LOCK_METHOD: POST
+  TF_HTTP_UNLOCK_METHOD: DELETE
+  TF_HTTP_USERNAME: gitlab-ci-token
+  TF_HTTP_PASSWORD: ${CI_JOB_TOKEN}
+  TF_HTTP_RETRY_WAIT_MIN: "5"
+
+# ---------------------------------------------------------------------------
+# Hidden base jobs
+# ---------------------------------------------------------------------------
+.tf:
+  image:
+    name: hashicorp/terraform:1.9.8   # pin exact versions; for OpenTofu use ghcr.io/opentofu/opentofu and `tofu`
+    entrypoint: [""]
+  before_script:
+    - cd "${CI_PROJECT_DIR}/${TF_ROOT}"
+
+# Jobs that touch cloud APIs: adds OIDC auth and tooling.
+.tf_auth:
+  extends: .tf
+  id_tokens:
+    # SECURITY: ambient OIDC. GitLab mints a short-lived JWT per job, signed by the
+    # instance. The cloud IAM trust policy pins the `sub` claim to this project and
+    # branch, so no static cloud keys are stored in CI variables.
+    GITLAB_OIDC_TOKEN:
+      aud: sts.amazonaws.com
+  variables:
+    AWS_WEB_IDENTITY_TOKEN_FILE: /tmp/gitlab_oidc_token
+    AWS_ROLE_SESSION_NAME: gitlab-${CI_PIPELINE_ID}-${CI_JOB_ID}
+  before_script:
+    - apk add --no-cache jq openssl curl >/dev/null
+    # SECURITY: restrictive umask, write token to a file the provider SDK reads
+    # natively, never echo it, never enable `set -x` in this job.
+    - umask 077
+    - printf '%s' "${GITLAB_OIDC_TOKEN}" > "${AWS_WEB_IDENTITY_TOKEN_FILE}"
+    # Each job maps its approved role ARN into AWS_ROLE_ARN. The AWS provider
+    # performs AssumeRoleWithWebIdentity automatically with these variables.
+    - mkdir -p "${TF_PLUGIN_CACHE_DIR}"
+    - cd "${CI_PROJECT_DIR}/${TF_ROOT}"
+  cache:
+    key:
+      files:
+        - ${TF_ROOT}/.terraform.lock.hcl
+    paths:
+      - .tf-plugin-cache/
+
+# ---------------------------------------------------------------------------
+# Stage: validate  (no cloud credentials, no state access)
+# ---------------------------------------------------------------------------
+fmt:
+  extends: .tf
+  stage: validate
+  interruptible: true
+  script:
+    - terraform fmt -check -recursive -diff
+
+validate:
+  extends: .tf
+  stage: validate
+  interruptible: true
+  script:
+    # -backend=false: validation needs providers, not state or credentials.
+    - terraform init -backend=false
+    - terraform validate
+
+tflint:
+  stage: validate
+  interruptible: true
+  image:
+    name: ghcr.io/terraform-linters/tflint:v0.53.0
+    entrypoint: [""]
+  script:
+    - tflint --chdir="${TF_ROOT}" --init
+    - tflint --chdir="${TF_ROOT}" --format=compact --minimum-failure-severity=warning
+
+# ---------------------------------------------------------------------------
+# Stage: plan
+# ---------------------------------------------------------------------------
+plan:
+  extends: [.tf_auth, .observability]
+  stage: plan
+  variables:
+    AWS_ROLE_ARN: $AWS_ROLE_ARN_PLAN
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+  script:
+    - terraform init
+    - terraform plan -lock-timeout=120s -out=tfplan
+    # Summarize the diff for the job log and for metrics (section 4).
+    - terraform show -json tfplan > plan.json
+    - |
+      ADD=$(jq '[.resource_changes[]? | select(.change.actions == ["create"])] | length' plan.json)
+      CHG=$(jq '[.resource_changes[]? | select(.change.actions == ["update"])] | length' plan.json)
+      DEL=$(jq '[.resource_changes[]? | select(.change.actions | index("delete"))] | length' plan.json)
+      echo "Plan summary: add=${ADD} change=${CHG} destroy=${DEL}"
+      printf 'tf_plan_resource_changes{action="add"} %s\ntf_plan_resource_changes{action="change"} %s\ntf_plan_resource_changes{action="destroy"} %s\n' \
+        "$ADD" "$CHG" "$DEL" > "${CI_PROJECT_DIR}/plan.prom"
+    # SECURITY: plan files embed resolved values, including secrets. GitLab artifacts
+    # are not encrypted per-file, so encrypt before upload and delete plaintext.
+    - openssl enc -aes-256-cbc -pbkdf2 -salt -in tfplan -out tfplan.enc -pass env:PLAN_ENC_KEY
+    - rm -f tfplan plan.json
+  artifacts:
+    paths:
+      - ${TF_ROOT}/tfplan.enc
+      - plan.prom
+    expire_in: 2 hours      # SECURITY: short-lived. A stale plan is also rejected by Terraform.
+    access: developer       # SECURITY: only Developer+ can download; not public or Reporter-visible
+
+# Same-project MR preview only. Fork MRs deliberately receive no cloud role or
+# state access; they still run the validate-stage jobs above.
+plan_mr:
+  extends: .tf_auth
+  stage: plan
+  variables:
+    AWS_ROLE_ARN: $AWS_ROLE_ARN_MR
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_PROJECT_PATH == $CI_MERGE_REQUEST_TARGET_PROJECT_PATH && $CI_MERGE_REQUEST_SOURCE_PROJECT_PATH == $CI_MERGE_REQUEST_TARGET_PROJECT_PATH'
+  script:
+    - terraform init
+    - terraform plan -lock=false -no-color
+
+# ---------------------------------------------------------------------------
+# Stage: apply  (manual, default branch only, gated by protected environment)
+# ---------------------------------------------------------------------------
+apply:
+  extends: [.tf_auth, .observability]
+  stage: apply
+  variables:
+    AWS_ROLE_ARN: $AWS_ROLE_ARN_APPLY
+  needs:
+    - job: plan
+      artifacts: true
+  rules:
+    # Only runs on the default branch after a merge. Branch protection (push
+    # disallowed, MR approvals required) is what guarantees an approved MR.
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_PIPELINE_SOURCE == "push"
+      when: manual
+      allow_failure: false   # blocks the pipeline until a human acts
+  environment:
+    name: production         # configure as a Protected Environment with required approvers
+  resource_group: terraform-production   # serialize applies across pipelines
+  interruptible: false
+  script:
+    - terraform init
+    - openssl enc -d -aes-256-cbc -pbkdf2 -in tfplan.enc -out tfplan -pass env:PLAN_ENC_KEY
+    # Applying the saved plan means the exact diff a human reviewed is what executes.
+    # If state drifted since plan, Terraform aborts with "Saved plan is stale".
+    - terraform apply -lock-timeout=300s tfplan
+    - rm -f tfplan
+
+# ---------------------------------------------------------------------------
+# Stage: ops  (scheduled drift detection; create a schedule with SCHEDULE_TYPE=drift)
+# ---------------------------------------------------------------------------
+drift:
+  extends: [.tf_auth, .observability]
+  stage: ops
+  variables:
+    AWS_ROLE_ARN: $AWS_ROLE_ARN_PLAN
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $SCHEDULE_TYPE == "drift"
+  script:
+    - terraform init
+    - rc=0
+    # -lock=false: drift checks are read-only and must never block a real apply.
+    - terraform plan -detailed-exitcode -lock=false -lock-timeout=60s -out=/dev/null || rc=$?
+    - printf 'tf_drift_detected %s\n' "$([ "$rc" -eq 2 ] && echo 1 || echo 0)" > "${CI_PROJECT_DIR}/plan.prom"
+    - |
+      if [ "$rc" -eq 1 ]; then echo "plan errored"; exit 1; fi
+      if [ "$rc" -eq 2 ]; then echo "DRIFT DETECTED: state and infrastructure disagree"; fi
