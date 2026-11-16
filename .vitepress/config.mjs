@@ -4,7 +4,7 @@ export default defineConfig({
   title: 'Cloud Native Craft',
   description: 'Practical infrastructure, Terraform, CI/CD, and observability guides for DevOps engineers.',
   ignoreDeadLinks: true,
-  srcExclude: ['business/**', 'blueprints/**'],
+  srcExclude: ['business/**', 'blueprints/**', 'README.md'],
   markdown: {
     config(md) {
       // Mark affiliate/referral links as rel="sponsored" (see the Affiliate Disclosure page).
